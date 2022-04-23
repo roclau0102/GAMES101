@@ -6,6 +6,7 @@
 
 #include <cmath>
 
+
 constexpr double MY_PI = 3.1415926;
 
 Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
@@ -13,8 +14,10 @@ Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
     Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
 
     Eigen::Matrix4f translate;
-    translate << 1, 0, 0, -eye_pos[0], 0, 1, 0, -eye_pos[1], 0, 0, 1,
-        -eye_pos[2], 0, 0, 0, 1;
+    translate << 1, 0, 0, -eye_pos[0], 
+                 0, 1, 0, -eye_pos[1], 
+                 0, 0, 1, -eye_pos[2], 
+                 0, 0, 0, 1;
 
     view = translate * view;
 
@@ -41,11 +44,23 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
 
 Eigen::Matrix4f get_rotation(Eigen::Vector3f axis, float angle)
 {
-    Eigen::Matrix4f rotation = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f model = Eigen::Matrix4f::Identity();
 
     // todo: 绕任意过原点的轴旋转
-
-    return rotation;
+    float x = axis.x();
+    float y = axis.y();
+    float z = axis.z();
+    float theta = angle / 180.0f * acos(-1);
+    Eigen::Matrix4f rotation;
+    rotation << x * x + (1 - cos(theta)) + cos(theta), x * y * (1 - cos(theta)) - z * sin(theta), x * z * (1 - cos(theta)) + y * sin(theta), 0,
+            x * y * (1 - cos(theta)) + z * sin(theta), y * y * (1 - cos(theta)) + cos(theta), y * z * (1 - cos(theta)) - x * sin(theta), 0,
+            x * z * (1 - cos(theta)) - y * sin(theta), y * z * (1 - cos(theta)) + x * sin(theta), z * z * (1 - cos(theta)) + cos(theta), 0,
+            0, 0, 0, 1;
+    // rotation << x * x + (1 - cos(theta)) + cos(theta), x * y * (1 - cos(theta)) + z * sin(theta), x * z * (1 - cos(theta)) - y * sin(theta), 0,
+    //         x * y * (1 - cos(theta)) - z * sin(theta), y * y * (1 - cos(theta)) + cos(theta), y * z * (1 - cos(theta)) + x * sin(theta), 0,
+    //         x * z * (1 - cos(theta)) + y * sin(theta), y * z * (1 - cos(theta)) - x * sin(theta), z * z * (1 - cos(theta)) + cos(theta), 0,
+    //         0, 0, 0, 1;
+    return rotation * model;
 }
 
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
@@ -150,6 +165,7 @@ int main(int argc, const char** argv)
         r.clear(rst::Buffers::Color | rst::Buffers::Depth);
 
         r.set_model(get_model_matrix(angle));
+        // r.set_model(get_rotation(Eigen::Vector3f(1, 1, 0), angle));
         r.set_view(get_view_matrix(eye_pos));
         r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
 
@@ -163,9 +179,22 @@ int main(int argc, const char** argv)
     }
 
     while (key != 27) {
+        // test cv::flip() 用法
+        // cv::Mat pic;
+        // pic = cv::imread("D:\\test.jpg", 0);
+        // if (pic.empty())
+        // {
+        //     std::cout<<"faild load test.jpg"<<std::endl;
+        // }
+        // cv::namedWindow("test");
+        // cv::Mat output;
+        // cv::flip(pic, output, 0);
+        // cv::imshow("test", output);
+
         r.clear(rst::Buffers::Color | rst::Buffers::Depth);
 
-        r.set_model(get_model_matrix(angle));
+        // r.set_model(get_model_matrix(angle));
+        r.set_model(get_rotation(Eigen::Vector3f(0, 0, 1), angle));
         r.set_view(get_view_matrix(eye_pos));
         r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
 
@@ -174,9 +203,12 @@ int main(int argc, const char** argv)
         cv::Mat image(700, 700, CV_32FC3, r.frame_buffer().data());
         image.convertTo(image, CV_8UC3, 1.0f);
         cv::imshow("image", image);
+        // cv::Mat output;
+        // cv::flip(image, output, 0);
+        // cv::imshow("image", output);
         key = cv::waitKey(10);
 
-        std::cout << "frame count: " << frame_count++ << '\n';
+        // std::cout << "frame count: " << frame_count++ << '\n';
 
         if (key == 'a') {
             angle += 10;

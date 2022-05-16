@@ -32,17 +32,19 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float z
 {
     // TODO: Copy-paste your implementation from the previous assignment.
     Eigen::Matrix4f projection;
+
+    float eve_fov_rad = eye_fov / 180.0f * std::acos(-1);
+    float top = std::tan(eve_fov_rad / 2.0f) * zNear;
+    float bottom = -top;
+    float right = aspect_ratio * top;
+    float left = -right;
+
+    // 透视空间 to 正交空间
     Eigen::Matrix4f perspective;
     perspective << zNear, 0, 0, 0,
                     0, zNear, 0, 0,
                     0, 0, zNear + zFar, -zNear * zFar,
                     0, 0, 1, 0;
-    
-    float theta = eye_fov / 2.0f / 180.0f * std::acos(-1);
-    float top = std::tan(theta) * zNear;
-    float bottom = -top;
-    float right = aspect_ratio * top;
-    float left = -right;
 
     // 移动正交空间 to 原点 
     Eigen::Matrix4f translate;

@@ -32,62 +32,30 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float z
 {
     // TODO: Copy-paste your implementation from the previous assignment.
     Eigen::Matrix4f projection;
-
-    // // copied from hw1: main.cpp: get_projection_matrix
-    // projection = Eigen::Matrix4f::Identity();
-    // float eye_fov_rad = eye_fov / 180.0f * acos(-1);
-    // float t = zNear * tan(eye_fov_rad/2.0f);
-    // float r = t * aspect_ratio;
-    // float b = -t;
-    // float l = -r;
-    // float n = -zNear;
-    // float f = -zFar;
-    // // frustum -> cubic
-    // Eigen::Matrix4f M_p2o;
-    // M_p2o << n, 0, 0, 0,
-    //          0, n, 0, 0,
-    //          0, 0, n+f, -n*f,
-    //          0, 0, 1, 0;
-    // // orthographic projection
-    // Eigen::Matrix4f M_o_shift = Eigen::Matrix4f::Identity();
-    // M_o_shift(0, 3) = -(r+l)/2.0f;
-    // M_o_shift(1, 3) = -(t+b)/2.0f;
-    // M_o_shift(2, 3) = -(n+f)/2.0f;
-    // Eigen::Matrix4f M_o_scale = Eigen::Matrix4f::Identity();
-    // M_o_scale(0, 0) = 2.0f / (r-l);
-    // M_o_scale(1, 1) = 2.0f / (t-b);
-    // M_o_scale(2, 2) = 2.0f / (n-f);
-    // // squash all transformations
-    // projection = M_o_scale * M_o_shift * M_p2o * projection;
-    // // std::clog << "projection" << std::endl << projection << std::endl;
-
-    float eve_fov_rad = eye_fov / 2.0f / 180.0f * std::acos(-1);
-    float t = std::tan(eve_fov_rad) * zNear;
-    float b = -t;
-    float r = aspect_ratio * t;
-    float l = -r;
-    float n = -zNear;
-    float f = -zFar;
-
-    // 透视空间 to 正交空间
     Eigen::Matrix4f perspective;
-    perspective << n, 0, 0, 0,
-                    0, n, 0, 0,
-                    0, 0, n + f, -n * f,
+    perspective << zNear, 0, 0, 0,
+                    0, zNear, 0, 0,
+                    0, 0, zNear + zFar, -zNear * zFar,
                     0, 0, 1, 0;
+    
+    float theta = eye_fov / 2.0f / 180.0f * std::acos(-1);
+    float top = std::tan(theta) * zNear;
+    float bottom = -top;
+    float right = aspect_ratio * top;
+    float left = -right;
 
     // 移动正交空间 to 原点 
     Eigen::Matrix4f translate;
-    translate << 1, 0, 0, -(l + r) / 2.0f,
-                    0, 1, 0, -(t + b) / 2.0f,
-                    0, 0, 1, -(n + f) / 2.0f,
+    translate << 1, 0, 0, -(left + right) / 2.0f,
+                    0, 1, 0, -(top + bottom) / 2.0f,
+                    0, 0, 1, -(zNear + zFar) / 2.0f,
                     0, 0, 0, 1;
 
     // 变换正交空间 to 'canonical' cube
     Eigen::Matrix4f scale;
-    scale << 2.0f / (r - l), 0, 0, 0,
-                0, 2.0f / (t - b), 0, 0,
-                0, 0, 2.0f / (n - f), 0,
+    scale << 2.0f / (right - left), 0, 0, 0,
+                0, 2.0f / (top - bottom), 0, 0,
+                0, 0, 2.0f / (zFar - zNear), 0,
                 0, 0, 0, 1;
 
     // 完整的透视变换
@@ -157,7 +125,7 @@ int main(int argc, const char** argv)
 
         r.set_model(get_model_matrix(angle));
         r.set_view(get_view_matrix(eye_pos));
-        r.set_projection(get_projection_matrix(45, 1, -0.1, -50));
+        r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
 
         r.draw(pos_id, ind_id, col_id, rst::Primitive::Triangle);
         cv::Mat image(700, 700, CV_32FC3, r.frame_buffer().data());

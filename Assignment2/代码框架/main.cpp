@@ -18,7 +18,6 @@ Eigen::Matrix4f get_view_matrix(Eigen::Vector3f eye_pos)
                  0,0,0,1;
 
     view = translate*view;
-
     return view;
 }
 
@@ -33,31 +32,33 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float z
     // TODO: Copy-paste your implementation from the previous assignment.
     Eigen::Matrix4f projection;
 
-    float eve_fov_rad = eye_fov / 180.0f * std::acos(-1);
-    float top = std::tan(eve_fov_rad / 2.0f) * zNear;
+    float eye_fov_rad = eye_fov / 180.0f * std::acos(-1);
+    float top = (float)std::tan(eye_fov_rad / 2.0f) * zNear;
     float bottom = -top;
     float right = aspect_ratio * top;
     float left = -right;
+    float near = -zNear;
+    float far = -zFar;
 
-    // 透视空间 to 正交空间
+    // 变换透视空间 to 正交空间
     Eigen::Matrix4f perspective;
-    perspective << zNear, 0, 0, 0,
-                    0, zNear, 0, 0,
-                    0, 0, zNear + zFar, -zNear * zFar,
+    perspective << near, 0, 0, 0,
+                    0, near, 0, 0,
+                    0, 0, near + far, -near * far,
                     0, 0, 1, 0;
 
     // 移动正交空间 to 原点 
     Eigen::Matrix4f translate;
     translate << 1, 0, 0, -(left + right) / 2.0f,
                     0, 1, 0, -(top + bottom) / 2.0f,
-                    0, 0, 1, -(zNear + zFar) / 2.0f,
+                    0, 0, 1, -(near + far) / 2.0f,
                     0, 0, 0, 1;
 
     // 变换正交空间 to 'canonical' cube
     Eigen::Matrix4f scale;
     scale << 2.0f / (right - left), 0, 0, 0,
                 0, 2.0f / (top - bottom), 0, 0,
-                0, 0, 2.0f / (zFar - zNear), 0,
+                0, 0, 2.0f / (far - near), 0,
                 0, 0, 0, 1;
 
     // 完整的透视变换
@@ -81,37 +82,30 @@ int main(int argc, const char** argv)
 
     Eigen::Vector3f eye_pos = {0,0,5};
 
-
     std::vector<Eigen::Vector3f> pos
             {
-                    {2, 0, -2},
-                    {0, 2, -2},
-                    {-2, 0, -2},
-                    {3.5, -1, -5},
-                    {2.5, 1.5, -5},
-                    {-1, 0.5, -5}
+                {2, 0, -2},
+                {0, 2, -2},
+                {-2, 0, -2},
+                {3.5, -1, -5},
+                {2.5, 1.5, -5},
+                {-1, 0.5, -5}
             };
 
     std::vector<Eigen::Vector3i> ind
             {
-                    {0, 1, 2},
-                    {3, 4, 5}
+                {0, 1, 2},
+                {3, 4, 5}
             };
 
     std::vector<Eigen::Vector3f> cols
             {
-                    {217.0, 238.0, 185.0},
-                    {217.0, 238.0, 185.0},
-                    {217.0, 238.0, 185.0},
-                    {185.0, 217.0, 238.0},
-                    {185.0, 217.0, 238.0},
-                    {185.0, 217.0, 238.0}
-                    // {255.0, 0.0, 0.0},
-                    // {255.0, 0.0, 0.0},
-                    // {255.0, 0.0, 0.0},
-                    // {0.0, 255.0, 0.0},
-                    // {0.0, 255.0, 0.0},
-                    // {0.0, 255.0, 0.0},
+                {217.0, 238.0, 185.0},
+                {217.0, 238.0, 185.0},
+                {217.0, 238.0, 185.0},
+                {185.0, 217.0, 238.0},
+                {185.0, 217.0, 238.0},
+                {185.0, 217.0, 238.0}
             };
 
     auto pos_id = r.load_positions(pos);
@@ -127,7 +121,7 @@ int main(int argc, const char** argv)
 
         r.set_model(get_model_matrix(angle));
         r.set_view(get_view_matrix(eye_pos));
-        r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
+        r.set_projection(get_projection_matrix(45.0f, 1.0f, 0.1f, 50.0f));
 
         r.draw(pos_id, ind_id, col_id, rst::Primitive::Triangle);
         cv::Mat image(700, 700, CV_32FC3, r.frame_buffer().data());
@@ -145,7 +139,7 @@ int main(int argc, const char** argv)
 
         r.set_model(get_model_matrix(angle));
         r.set_view(get_view_matrix(eye_pos));
-        r.set_projection(get_projection_matrix(45, 1, 0.1, 50));
+        r.set_projection(get_projection_matrix(45.0f, 1.0f, 0.1f, 50.0f));
 
         r.draw(pos_id, ind_id, col_id, rst::Primitive::Triangle);
 

@@ -163,9 +163,9 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             //     z_interpolated *= w_reciprocal;
 
             //     auto id = get_index(x, y);
-            //     if (-z_interpolated < depth_buf[id])
+            //     if (z_interpolated < depth_buf[id])
             //     {
-            //         depth_buf[id] = -z_interpolated;
+            //         depth_buf[id] = z_interpolated;
             //         set_pixel(Vector3f(x, y, 0), t.getColor());
             //     }
             // }
@@ -188,9 +188,9 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
 
                         int id = (x * 2 + x_sup) + (y * 2 + y_sup) * width * 2;
                         // key
-                        if (-z_interpolated <= depth_buf_msaa_2x2[id])
+                        if (z_interpolated < depth_buf_msaa_2x2[id])
                         {
-                            depth_buf_msaa_2x2[id] = -z_interpolated;
+                            depth_buf_msaa_2x2[id] = z_interpolated;
                             ++sup_px_cnt;
                         }
                     }
@@ -252,7 +252,6 @@ void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vecto
     //old index: auto ind = point.y() + point.x() * width;
     auto ind = (height-1-point.y())*width + point.x();
     frame_buf[ind] = color;
-
 }
 
 void rst::rasterizer::mix_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color)

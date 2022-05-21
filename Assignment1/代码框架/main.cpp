@@ -32,10 +32,10 @@ Eigen::Matrix4f get_model_matrix(float rotation_angle)
     // Create the model matrix for rotating the triangle around the Z axis.
     // Then return it.
 
-    float theta = rotation_angle / 180.0f * acos(-1); // angle to radius
+    float rot_rad = rotation_angle / 180.0f * acos(-1); // angle to radius
     Eigen::Matrix4f rotation;
-    rotation << std::cos(theta), -std::sin(theta), 0, 0,
-         std::sin(theta),  std::cos(theta), 0, 0,
+    rotation << std::cos(rot_rad), -std::sin(rot_rad), 0, 0,
+         std::sin(rot_rad),  std::cos(rot_rad), 0, 0,
          0, 0, 1, 0,
          0, 0, 0, 1;
     model = rotation * model;
@@ -74,31 +74,33 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
     // Create the projection matrix for the given parameters.
     // Then return it.
 
-    // 变换透视空间 to 正交空间
-    Eigen::Matrix4f perspective;
-    perspective << zNear, 0, 0, 0,
-                    0, zNear, 0, 0,
-                    0, 0, zNear + zFar, -zNear * zFar,
-                    0, 0, 1, 0;
-    
-    float theta = eye_fov / 2.0f / 180.0f * std::acos(-1);
-    float top = std::tan(theta) * zNear;
+    float eye_fov_rad = eye_fov / 180.0f * std::acos(-1);
+    float top = std::tan(eye_fov_rad / 2.0f) * zNear;
     float bottom = -top;
     float right = aspect_ratio * top;
     float left = -right;
+    float near = -zNear;
+    float far = -zFar;
+
+    // 变换透视空间 to 正交空间
+    Eigen::Matrix4f perspective;
+    perspective << near, 0, 0, 0,
+                    0, near, 0, 0,
+                    0, 0, near + far, -near * far,
+                    0, 0, 1, 0;
 
     // 移动正交空间 to 原点 
     Eigen::Matrix4f translate;
     translate << 1, 0, 0, -(left + right) / 2.0f,
                     0, 1, 0, -(top + bottom) / 2.0f,
-                    0, 0, 1, -(zNear + zFar) / 2.0f,
+                    0, 0, 1, -(near + far) / 2.0f,
                     0, 0, 0, 1;
 
     // 变换正交空间 to 'canonical' cube
     Eigen::Matrix4f scale;
     scale << 2.0f / (right - left), 0, 0, 0,
                 0, 2.0f / (top - bottom), 0, 0,
-                0, 0, 2.0f / (zFar - zNear), 0,
+                0, 0, 2.0f / (far - near), 0,
                 0, 0, 0, 1;
 
     // 完整的透视变换
@@ -179,17 +181,6 @@ int main(int argc, const char** argv)
     }
 
     while (key != 27) {
-        // test cv::flip() 用法
-        // cv::Mat pic;
-        // pic = cv::imread("D:\\test.jpg", 0);
-        // if (pic.empty())
-        // {
-        //     std::cout<<"faild load test.jpg"<<std::endl;
-        // }
-        // cv::namedWindow("test");
-        // cv::Mat output;
-        // cv::flip(pic, output, 0);
-        // cv::imshow("test", output);
 
         r.clear(rst::Buffers::Color | rst::Buffers::Depth);
 
@@ -203,12 +194,9 @@ int main(int argc, const char** argv)
         cv::Mat image(700, 700, CV_32FC3, r.frame_buffer().data());
         image.convertTo(image, CV_8UC3, 1.0f);
         cv::imshow("image", image);
-        // cv::Mat output;
-        // cv::flip(image, output, 0);
-        // cv::imshow("image", output);
         key = cv::waitKey(10);
 
-        // std::cout << "frame count: " << frame_count++ << '\n';
+        std::cout << "frame count: " << frame_count++ << '\n';
 
         if (key == 'a') {
             angle += 10;

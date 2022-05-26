@@ -122,27 +122,24 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     // TODO : Find out the bounding box of current triangle.
     // iterate through the pixel and find if the current pixel is inside the triangle
 
-    float min_x = width;
-    float max_x = 0.0f;
-    float min_y = height;
-    float max_y = 0.0f;
+    float px_min, py_min;
+    float px_max, py_max;
 
-    for (int i = 0; i < 3; i++)
+    px_min = py_min = FLT_MAX;
+    px_max = py_max = -FLT_MAX;
+
+    for (auto point : v)
     {
-        if (v[i].x() < min_x)
-            min_x = v[i].x();
-        if (v[i].x() > max_x)
-            max_x = v[i].x();
-        if (v[i].y() < min_y)
-            min_y = v[i].y();
-        if (v[i].y() > max_y)
-            max_y = v[i].y();
+        if (point.x() < px_min) px_min = point.x();
+        if (point.x() > px_max) px_max = point.x();
+        if (point.y() < py_min) py_min = point.y();
+        if (point.y() > py_max) py_max = point.y();
     }
 
-    min_x = floor(min_x);
-    max_x = ceil(max_x);
-    min_y = floor(min_y);
-    max_y = ceil(max_y);
+    px_min = floor(px_min);
+    py_min = floor(py_min);
+    px_max = ceil(px_max);
+    py_max = ceil(py_max);
 
     // If so, use the following code to get the interpolated z value.
     //auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
@@ -150,9 +147,9 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     //float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
     //z_interpolated *= w_reciprocal;
 
-    for (int y = min_y; y <= max_y; ++y)
+    for (int py = py_min; py <= py_max; ++py)
     {
-        for (int x = min_x; x <= max_x; ++x)
+        for (int px = px_min; px <= px_max; ++px)
         {
             // no MSAA
             // if (insideTriangle(x, y, t.v))
@@ -171,13 +168,13 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
             // }
 
             // MSAA 2x2
-            int sup_px_cnt = 0;
+            int sample_cnt = 0;
             for (int x_sup : {0, 1})
             {
                 for (int y_sup : {0, 1})
                 {
-                    float x_pos = x + 0.25f * (1 + 2 * x_sup);
-                    float y_pos = y + 0.25f * (1 + 2 * y_sup);
+                    float x_pos = px + 0.25f * (1 + 2 * x_sup);
+                    float y_pos = py + 0.25f * (1 + 2 * y_sup);
                     
                     if (insideTriangle(x_pos, y_pos, t.v))
                     {
@@ -186,20 +183,22 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
                         float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
                         z_interpolated *= w_reciprocal;
 
-                        int id = (x * 2 + x_sup) + (y * 2 + y_sup) * width * 2;
+                        int id = (px * 2 + x_sup) + (py * 2 + y_sup) * width * 2;
                         // key
                         if (z_interpolated < depth_buf_msaa_2x2[id])
                         {
                             depth_buf_msaa_2x2[id] = z_interpolated;
-                            ++sup_px_cnt;
+                            ++sample_cnt;
                         }
                     }
                 }
             }
 
-            if (sup_px_cnt > 0)
+            if (sample_cnt > 0)
             {
-                mix_pixel(Vector3f(x, y, 0), t.getColor() * sup_px_cnt / 4.0f);
+                float intensity = sample_cnt / 4.0f;
+                mix_pixel(Vector3f(px, py, 0), t.getColor() * intensity);
+                // set_pixel(Vector3f(px, py, 0), t.getColor() * intensity);    // 为什么这个会在三角形重叠的边界出现黑边？
             }
         }
     }

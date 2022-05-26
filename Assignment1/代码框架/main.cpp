@@ -63,6 +63,7 @@ Eigen::Matrix4f get_rotation(Eigen::Vector3f axis, float angle)
     return rotation * model;
 }
 
+// https://www.scratchapixel.com/lessons/3d-basic-rendering/perspective-and-orthographic-projection-matrix/building-basic-perspective-projection-matrix
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
                                       float zNear, float zFar)
 {
@@ -74,64 +75,16 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
     // Create the projection matrix for the given parameters.
     // Then return it.
 
-    float eye_fov_rad = eye_fov / 180.0f * std::acos(-1);
-    float top = std::tan(eye_fov_rad / 2.0f) * zNear;
-    float bottom = -top;
-    float right = aspect_ratio * top;
-    float left = -right;
-    float near = -zNear;
-    float far = -zFar;
-
-    // 变换透视空间 to 正交空间
-    Eigen::Matrix4f perspective;
-    perspective << near, 0, 0, 0,
-                    0, near, 0, 0,
-                    0, 0, near + far, -near * far,
-                    0, 0, 1, 0;
-
-    // 移动正交空间 to 原点 
-    Eigen::Matrix4f translate;
-    translate << 1, 0, 0, -(left + right) / 2.0f,
-                    0, 1, 0, -(top + bottom) / 2.0f,
-                    0, 0, 1, -(near + far) / 2.0f,
-                    0, 0, 0, 1;
-
-    // 变换正交空间 to 'canonical' cube
-    Eigen::Matrix4f scale;
-    scale << 2.0f / (right - left), 0, 0, 0,
-                0, 2.0f / (top - bottom), 0, 0,
-                0, 0, 2.0f / (far - near), 0,
-                0, 0, 0, 1;
-
-    // 完整的透视变换
-    projection = scale * translate * perspective;
+    float n = zNear;
+    float f = zFar;
+    float s = 1.0f / std::tan(eye_fov * 0.5f * MY_PI / 180.0f);
+    projection(0, 0) = s;
+    projection(1, 1) = s;
+    projection(2, 2) = -f / (f - n);
+    projection(2, 3) = -f * n / (f - n);
+    projection(3, 2) = -1;
     return projection;
 }
-
-// Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
-//                                       float zNear, float zFar)
-// {
-//     // Students will implement this function
-
-//     Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
-
-//     // TODO: Implement this function
-//     // Create the projection matrix for the given parameters.
-//     // Then return it.
-    
-//     eye_fov = eye_fov * MY_PI / 180;
-//     float fax = 1.0f / (float)tan(eye_fov * 0.5f);
-
-//     Eigen::Matrix4f perspective;
-//     perspective << (float)(fax / aspect_ratio),0,0,0,
-//                     0,(float)(fax),0,0,
-//                     0,0,zFar / (zFar - zNear),0,
-//                     0,0,1,-zNear * zFar / (zFar - zNear);
-
-//     projection = perspective * projection;
-
-//     return projection;
-// }
 
 int main(int argc, const char** argv)
 {

@@ -152,18 +152,18 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
         for (int px = px_min; px <= px_max; ++px)
         {
             // no MSAA
-            // if (insideTriangle(x, y, t.v))
+            // if (insideTriangle(px, py, t.v))
             // {
-            //     auto[alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
+            //     auto[alpha, beta, gamma] = computeBarycentric2D(px, py, t.v);
             //     float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
             //     float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
             //     z_interpolated *= w_reciprocal;
 
-            //     auto id = get_index(x, y);
+            //     auto id = get_index(px, py);    // 其实像素在深度缓冲的位置可以跟在framebuffer里不一样，这里偷懒直接用了已有的 get_index() 方法来获得下标
             //     if (z_interpolated < depth_buf[id])
             //     {
             //         depth_buf[id] = z_interpolated;
-            //         set_pixel(Vector3f(x, y, 0), t.getColor());
+            //         set_pixel(Vector3f(px, py, 0), t.getColor());
             //     }
             // }
 

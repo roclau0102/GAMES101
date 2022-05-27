@@ -122,13 +122,12 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     // TODO : Find out the bounding box of current triangle.
     // iterate through the pixel and find if the current pixel is inside the triangle
 
-    float px_min, py_min;
-    float px_max, py_max;
+    float px_min = FLT_MAX;
+    float py_min = FLT_MAX;
+    float px_max = -FLT_MAX;
+    float py_max = -FLT_MAX;
 
-    px_min = py_min = FLT_MAX;
-    px_max = py_max = -FLT_MAX;
-
-    for (auto point : v)
+    for (auto& point : v)
     {
         if (point.x() < px_min) px_min = point.x();
         if (point.x() > px_max) px_max = point.x();
@@ -151,53 +150,62 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t) {
     {
         for (int px = px_min; px <= px_max; ++px)
         {
-            // no MSAA
-            // if (insideTriangle(px, py, t.v))
-            // {
-            //     auto[alpha, beta, gamma] = computeBarycentric2D(px, py, t.v);
-            //     float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-            //     float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-            //     z_interpolated *= w_reciprocal;
-
-            //     auto id = get_index(px, py);    // 其实像素在深度缓冲的位置可以跟在framebuffer里不一样，这里偷懒直接用了已有的 get_index() 方法来获得下标
-            //     if (z_interpolated < depth_buf[id])
-            //     {
-            //         depth_buf[id] = z_interpolated;
-            //         set_pixel(Vector3f(px, py, 0), t.getColor());
-            //     }
-            // }
-
             // MSAA 2x2
-            int sample_cnt = 0;
-            for (int x_sup : {0, 1})
+            if (enabled_msaa_2x)
             {
-                for (int y_sup : {0, 1})
-                {
-                    float x_pos = px + 0.25f * (1 + 2 * x_sup);
-                    float y_pos = py + 0.25f * (1 + 2 * y_sup);
-                    
-                    if (insideTriangle(x_pos, y_pos, t.v))
-                    {
-                        auto[alpha, beta, gamma] = computeBarycentric2D(x_pos, y_pos, t.v);
-                        float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
-                        float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
-                        z_interpolated *= w_reciprocal;
+                int num_of_covered_samples = 0;
+                Vector3f colors_of_all_samples = Vector3f::Zero();
 
+                for (int x_sup : {0, 1})
+                {
+                    for (int y_sup : {0, 1})
+                    {
+                        float x_pos = px + 0.25f * (1 + 2 * x_sup);
+                        float y_pos = py + 0.25f * (1 + 2 * y_sup);
                         int id = (px * 2 + x_sup) + (py * 2 + y_sup) * width * 2;   // 定位每个sample在深度缓冲的位置
-                        if (z_interpolated < depth_buf_msaa_2x2[id])
+
+                        if (insideTriangle(x_pos, y_pos, t.v))
                         {
-                            depth_buf_msaa_2x2[id] = z_interpolated;
-                            ++sample_cnt;
+                            auto[alpha, beta, gamma] = computeBarycentric2D(x_pos, y_pos, t.v);
+                            float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                            float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                            z_interpolated *= w_reciprocal;
+
+                            if (z_interpolated < depth_buf_msaa_2x[id])
+                            {
+                                depth_buf_msaa_2x[id] = z_interpolated;
+                                frame_buf_msaa_2x[id] = t.getColor();
+                                ++num_of_covered_samples;
+                            }
                         }
+
+                        colors_of_all_samples += frame_buf_msaa_2x[id];
                     }
                 }
+
+                if (num_of_covered_samples > 0)
+                {
+                    // float intensity = sample_cnt / 4.0f; // 为什么这个会在三角形重叠的边界出现黑边？ 因为前面的三角形只覆盖了1个采样点，导致颜色值较小，看起来接近黑色。
+                    set_pixel(Vector3f(px, py, 0), colors_of_all_samples / 4);    // 取4个采样点颜色的平均值
+                }
+
+                continue;
             }
 
-            if (sample_cnt > 0)
+            // no MSAA
+            if (insideTriangle(px, py, t.v))
             {
-                float intensity = sample_cnt / 4.0f;
-                mix_pixel(Vector3f(px, py, 0), t.getColor() * intensity);
-                // set_pixel(Vector3f(px, py, 0), t.getColor() * intensity);    // 为什么这个会在三角形重叠的边界出现黑边？
+                auto[alpha, beta, gamma] = computeBarycentric2D(px, py, t.v);
+                float w_reciprocal = 1.0/(alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                float z_interpolated = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                z_interpolated *= w_reciprocal;
+
+                auto id = get_index(px, py);    // 其实像素在深度缓冲的位置可以跟在framebuffer里不一样，这里偷懒直接用了已有的 get_index() 方法来获得下标
+                if (z_interpolated < depth_buf[id])
+                {
+                    depth_buf[id] = z_interpolated;
+                    set_pixel(Vector3f(px, py, 0), t.getColor());
+                }
             }
         }
     }
@@ -225,19 +233,26 @@ void rst::rasterizer::clear(rst::Buffers buff)
     if ((buff & rst::Buffers::Color) == rst::Buffers::Color)
     {
         std::fill(frame_buf.begin(), frame_buf.end(), Eigen::Vector3f{0, 0, 0});
+        if (enabled_msaa_2x)
+            std::fill(frame_buf_msaa_2x.begin(), frame_buf_msaa_2x.end(), Eigen::Vector3f{0, 0, 0});
     }
     if ((buff & rst::Buffers::Depth) == rst::Buffers::Depth)
     {
         std::fill(depth_buf.begin(), depth_buf.end(), std::numeric_limits<float>::infinity());
-        std::fill(depth_buf_msaa_2x2.begin(), depth_buf_msaa_2x2.end(), std::numeric_limits<float>::infinity());
+        if (enabled_msaa_2x)
+            std::fill(depth_buf_msaa_2x.begin(), depth_buf_msaa_2x.end(), std::numeric_limits<float>::infinity());
     }
 }
 
-rst::rasterizer::rasterizer(int w, int h) : width(w), height(h)
+rst::rasterizer::rasterizer(int w, int h, bool enable_msaa_2x) : width(w), height(h), enabled_msaa_2x(enable_msaa_2x)
 {
     frame_buf.resize(w * h);
     depth_buf.resize(w * h);
-    depth_buf_msaa_2x2.resize(w * h * 2 * 2);
+    if (enable_msaa_2x)
+    {
+        frame_buf_msaa_2x.resize(w * h * 2 * 2);
+        depth_buf_msaa_2x.resize(w * h * 2 * 2);
+    }
 }
 
 int rst::rasterizer::get_index(int x, int y)
@@ -250,13 +265,6 @@ void rst::rasterizer::set_pixel(const Eigen::Vector3f& point, const Eigen::Vecto
     //old index: auto ind = point.y() + point.x() * width;
     auto ind = (height-1-point.y())*width + point.x();
     frame_buf[ind] = color;
-}
-
-void rst::rasterizer::mix_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color)
-{
-    //old index: auto ind = point.y() + point.x() * width;
-    auto ind = (height-1-point.y())*width + point.x();
-    frame_buf[ind] += color;
 }
 
 // clang-format on

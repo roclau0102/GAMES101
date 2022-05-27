@@ -57,7 +57,7 @@ namespace rst
     class rasterizer
     {
     public:
-        rasterizer(int w, int h);
+        rasterizer(int w, int h, bool enable_msaa_2x = false);
         pos_buf_id load_positions(const std::vector<Eigen::Vector3f>& positions);
         ind_buf_id load_indices(const std::vector<Eigen::Vector3i>& indices);
         col_buf_id load_colors(const std::vector<Eigen::Vector3f>& colors);
@@ -67,7 +67,6 @@ namespace rst
         void set_projection(const Eigen::Matrix4f& p);
 
         void set_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color);
-        void mix_pixel(const Eigen::Vector3f& point, const Eigen::Vector3f& color);
 
         void clear(Buffers buff);
 
@@ -92,9 +91,10 @@ namespace rst
         std::map<int, std::vector<Eigen::Vector3f>> col_buf;
 
         std::vector<Eigen::Vector3f> frame_buf;
+        std::vector<Eigen::Vector3f> frame_buf_msaa_2x;
 
         std::vector<float> depth_buf;
-        std::vector<float> depth_buf_msaa_2x2;
+        std::vector<float> depth_buf_msaa_2x;
 
         int get_index(int x, int y);
 
@@ -102,5 +102,7 @@ namespace rst
 
         int next_id = 0;
         int get_next_id() { return next_id++; }
+
+        bool enabled_msaa_2x;
     };
 }

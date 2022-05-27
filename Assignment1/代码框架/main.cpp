@@ -69,7 +69,7 @@ Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio,
 {
     // Students will implement this function
 
-    Eigen::Matrix4f projection = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4f projection = Eigen::Matrix4f::Zero();
 
     // TODO: Implement this function
     // Create the projection matrix for the given parameters.

@@ -57,7 +57,7 @@ namespace rst
     class rasterizer
     {
     public:
-        rasterizer(int w, int h, bool enable_msaa_2x = false);
+        rasterizer(int w, int h, bool enable_msaa_2x = true);
         pos_buf_id load_positions(const std::vector<Eigen::Vector3f>& positions);
         ind_buf_id load_indices(const std::vector<Eigen::Vector3i>& indices);
         col_buf_id load_colors(const std::vector<Eigen::Vector3f>& colors);

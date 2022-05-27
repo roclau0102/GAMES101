@@ -280,7 +280,55 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
     // Use: Instead of passing the triangle's color directly to the frame buffer, pass the color to the shaders first to get the final color;
     // Use: auto pixel_color = fragment_shader(payload);
 
- 
+    auto& v = t.toVector4();
+
+    float x_min = FLT_MAX;
+    float y_min = FLT_MAX;
+    float x_max = -FLT_MAX;
+    float y_max = -FLT_MAX;
+
+    for (auto& p : t.v)
+    {
+        if (p.x() < x_min) x_min = p.x();
+        if (p.y() < y_min) y_min = p.y();
+        if (p.x() > x_max) x_max = p.x();
+        if (p.y() > y_max) y_max = p.y();
+    }
+
+    x_min = floor(x_min);
+    y_min = floor(y_min);
+    x_max = ceil(x_max);
+    y_max = ceil(y_max);
+
+    for (int py = y_min; py <= y_max; py++)
+    {
+        for (int px = x_min; px <= x_max; px++)
+        {
+            if (insideTriangle(px, py, t.v))
+            {
+                auto[alpha, beta, gamma] = computeBarycentric2D(px, py, t.v);
+                float Z = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+                float zp = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+                zp *= Z;
+
+                int id = px + py * width;
+                if (zp < depth_buf[id])
+                {
+                    depth_buf[id] = zp;
+
+                    auto interpolated_color = alpha * t.color[0] + beta * t.color[1] + gamma * t.color[2];
+                    auto interpolated_normal = alpha * t.normal[0] + beta * t.normal[1] + gamma * t.normal[2];
+                    auto interpolated_texcoords = alpha * t.tex_coords[0] + beta * t.tex_coords[1] + gamma * t.tex_coords[2];
+                    auto interpolated_shadingcoords = alpha * view_pos[0] + beta * view_pos[1] + gamma * view_pos[2];
+
+                    fragment_shader_payload payload(interpolated_color, interpolated_normal.normalized(), interpolated_texcoords, texture ? &*texture : nullptr);    // std::optianl 是什么？
+                    payload.view_pos = interpolated_shadingcoords;
+                    auto pixel_color = fragment_shader(payload);
+                    set_pixel(Vector2i(px, py), pixel_color);
+                }
+            }
+        }
+    }
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f& m)

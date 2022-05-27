@@ -50,7 +50,18 @@ Eigen::Matrix4f get_model_matrix(float angle)
 Eigen::Matrix4f get_projection_matrix(float eye_fov, float aspect_ratio, float zNear, float zFar)
 {
     // TODO: Use the same projection matrix from the previous assignments
+    Eigen::Matrix4f projection = Eigen::Matrix4f::Zero();
 
+    float n = zNear;
+    float f = zFar;
+    float s = 1.0f / std::tan(eye_fov * 0.5f * MY_PI / 180.0f);
+    projection(0, 0) = s;
+    projection(1, 1) = s;
+    projection(2, 2) = -f / (f - n);
+    projection(2, 3) = -f * n / (f - n);
+    projection(3, 2) = -1;
+    
+    return projection;
 }
 
 Eigen::Vector3f vertex_shader(const vertex_shader_payload& payload)
@@ -84,7 +95,7 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
     if (payload.texture)
     {
         // TODO: Get the texture value at the texture coordinates of the current fragment
-
+        return_color = payload.texture->getColor(payload.tex_coords.x(), payload.tex_coords.y());
     }
     Eigen::Vector3f texture_color;
     texture_color << return_color.x(), return_color.y(), return_color.z();
@@ -112,10 +123,11 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
     {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
-
+        result_color = color / 255.f;
     }
 
-    return result_color * 255.f;
+    // return result_color * 255.f;
+    return Eigen::Vector3f(255, 0, 0);
 }
 
 Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
@@ -142,7 +154,19 @@ Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
     {
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
-        
+        Vector3f l = (light.position - point).normalized();
+        Vector3f n = normal.normalized();
+        Vector3f v = (eye_pos - point).normalized();
+        Vector3f h = (v + l) / (v + l).norm();
+        float r = (light.position - point).norm();
+
+        Vector3f la = Vector3f(ka.x() * amb_light_intensity.x(), ka.y() * amb_light_intensity.y(), ka.z() * amb_light_intensity.z());
+        float ldf = (light.intensity.x() / (r * r)) * (std::max(0.f, n.dot(l)));
+        Vector3f ld = kd * ldf;
+        float lsf = (light.intensity.x() / (r * r)) * std::pow(std::max(0.f, n.dot(h)), p);
+        Vector3f ls = ks * lsf;
+        Vector3f c =  la + ld + ls;
+        result_color += c;
     }
 
     return result_color * 255.f;
@@ -247,10 +271,21 @@ int main(int argc, const char** argv)
 
     std::string filename = "output.png";
     objl::Loader Loader;
+#if WIN32
+    std::string obj_path = "../../models/spot/";
+#elif __APPLE__
     std::string obj_path = "../models/spot/";
+#endif
+    std::string objname = "spot_triangulated_good.obj";
 
     // Load .obj File
-    bool loadout = Loader.LoadFile("../models/spot/spot_triangulated_good.obj");
+    bool loadout = Loader.LoadFile(obj_path + objname);
+    if (!loadout)
+    {
+        std::cout << "ERROR! Can't load obj from " << obj_path + objname << std::endl;
+        return -1;
+    }
+
     for(auto mesh:Loader.LoadedMeshes)
     {
         for(int i=0;i<mesh.Vertices.size();i+=3)
@@ -271,7 +306,7 @@ int main(int argc, const char** argv)
     auto texture_path = "hmap.jpg";
     r.set_texture(Texture(obj_path + texture_path));
 
-    std::function<Eigen::Vector3f(fragment_shader_payload)> active_shader = phong_fragment_shader;
+    std::function<Eigen::Vector3f(fragment_shader_payload)> active_shader = phong_fragment_shader;  // phong_fragment_shader
 
     if (argc >= 2)
     {

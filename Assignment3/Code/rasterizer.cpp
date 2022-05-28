@@ -319,9 +319,16 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
                     auto interpolated_color = alpha * t.color[0] + beta * t.color[1] + gamma * t.color[2];
                     auto interpolated_normal = alpha * t.normal[0] + beta * t.normal[1] + gamma * t.normal[2];
                     auto interpolated_texcoords = alpha * t.tex_coords[0] + beta * t.tex_coords[1] + gamma * t.tex_coords[2];
+                    // 插值出来的uv有可能超过[0,1]，导致opencv库断言失败而崩溃。讲道理uv不应该有问题，难道是obj导出的时候有问题？
+                    float u = interpolated_texcoords.x();
+                    float v = interpolated_texcoords.y();
+                    if (u < 0) u = 0.f;
+                    if (v < 0) v = 0.f;
+                    if (u > 1) u = 1.f;
+                    if (v > 1) v = 1.f;
                     auto interpolated_shadingcoords = alpha * view_pos[0] + beta * view_pos[1] + gamma * view_pos[2];
 
-                    fragment_shader_payload payload(interpolated_color, interpolated_normal.normalized(), interpolated_texcoords, texture ? &*texture : nullptr);    // std::optianl 是什么？
+                    fragment_shader_payload payload(interpolated_color, interpolated_normal.normalized(), Vector2f(u,v), texture ? &*texture : nullptr);    // std::optianl 是什么？
                     payload.view_pos = interpolated_shadingcoords;
                     auto pixel_color = fragment_shader(payload);
                     set_pixel(Vector2i(px, py), pixel_color);

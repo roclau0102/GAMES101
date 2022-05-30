@@ -129,13 +129,18 @@ Eigen::Vector3f texture_fragment_shader(const fragment_shader_payload& payload)
         Vector3f halfwayDir = (viewDir + lightDir).normalized();
         float distance = (light.position - point).norm();
         distance = distance * distance;
-        float diff = (light.intensity.x() / distance) * std::max(0.f, normal.dot(lightDir));
-        float spec = (light.intensity.x() / distance) * std::pow(std::max(0.f, normal.dot(halfwayDir)), p);
 
-        Vector3f ambient = Vector3f(ka.x() * amb_light_intensity.x(), ka.y() * amb_light_intensity.y(), ka.z() * amb_light_intensity.z());
-        Vector3f diffuse = kd * diff;
-        Vector3f specular = ks * spec;
-        result_color += ambient + diffuse + specular;
+        // reflected ambient light = ambient coefficient * intensity
+        Vector3f ambient = ka * amb_light_intensity.x();
+
+        // Lambertian: diffusely reflected light = diffuse coefficient * energy arrived at the shading pint * enery received by the shading point
+        Vector3f diffuse = kd * (light.intensity.x() / distance) * std::max(0.f, normal.dot(lightDir));
+
+        // Blinn-Phong: speculary reflected light = specular coefficient * energy arrived at the shading pint * view dir close to mirror direction
+        Vector3f specular = ks * (light.intensity.x() / distance) * std::pow(std::max(0.f, normal.dot(halfwayDir)), p);
+
+        // Blinn-Phong Reflection Model: Blinn-Phong Reflection = Ambient + Diffuse + Specular
+        result_color += (ambient + diffuse + specular);
     }
 
     return result_color * 255.f;
@@ -171,13 +176,18 @@ Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
         Vector3f halfwayDir = (viewDir + lightDir).normalized();
         float distance = (light.position - point).norm();
         distance = distance * distance;
-        float diff = (light.intensity.x() / distance) * std::max(0.f, normal.dot(lightDir));
-        float spec = (light.intensity.x() / distance) * std::pow(std::max(0.f, normal.dot(halfwayDir)), p);
 
-        Vector3f ambient = Vector3f(ka.x() * amb_light_intensity.x(), ka.y() * amb_light_intensity.y(), ka.z() * amb_light_intensity.z());
-        Vector3f diffuse = kd * diff;
-        Vector3f specular = ks * spec;
-        result_color += ambient + diffuse + specular;
+        // reflected ambient light = ambient coefficient * intensity
+        Vector3f ambient = ka * amb_light_intensity.x();
+
+        // Lambertian: diffusely reflected light = diffuse coefficient * energy arrived at the shading pint * enery received by the shading point
+        Vector3f diffuse = kd * (light.intensity.x() / distance) * std::max(0.f, normal.dot(lightDir));
+
+        // Blinn-Phong: speculary reflected light = specular coefficient * energy arrived at the shading pint * view dir close to mirror direction
+        Vector3f specular = ks * (light.intensity.x() / distance) * std::pow(std::max(0.f, normal.dot(halfwayDir)), p);
+
+        // Blinn-Phong Reflection Model: Blinn-Phong Reflection = Ambient + Diffuse + Specular
+        result_color += (ambient + diffuse + specular);
     }
 
     return result_color * 255.f;
@@ -187,7 +197,6 @@ Eigen::Vector3f phong_fragment_shader(const fragment_shader_payload& payload)
 
 Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payload)
 {
-    
     Eigen::Vector3f ka = Eigen::Vector3f(0.005, 0.005, 0.005);
     Eigen::Vector3f kd = payload.color;
     Eigen::Vector3f ks = Eigen::Vector3f(0.7937, 0.7937, 0.7937);
@@ -218,6 +227,25 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
     // Position p = p + kn * n * h(u,v)
     // Normal n = normalize(TBN * ln)
 
+    Vector3f n = normal;
+    float x = n.x();
+    float y = n.y();
+    float z = n.z();
+    float w = payload.texture->width;
+    float h = payload.texture->height;
+    float u = payload.tex_coords.x();
+    float v = payload.tex_coords.y();
+
+    Vector3f t(x*y/sqrt(x*x+z*z),sqrt(x*x+z*z),z*y/sqrt(x*x+z*z));
+    Vector3f b = n.cross(t);
+    Matrix3f TBN;
+    TBN << t, b, n;
+    float dU = kh * kn * (payload.texture->getColor(u+1.f/w,v).norm() - payload.texture->getColor(u,v).norm());
+    float dV = kh * kn * (payload.texture->getColor(u,v+1.f/h).norm() - payload.texture->getColor(u,v).norm());
+    Vector3f ln(-dU, -dV, 1.f);
+
+    point = point + kn * n * payload.texture->getColor(u,v).norm();
+    normal = (TBN * ln).normalized();
 
     Eigen::Vector3f result_color = {0, 0, 0};
 
@@ -226,7 +254,23 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
         // TODO: For each light source in the code, calculate what the *ambient*, *diffuse*, and *specular* 
         // components are. Then, accumulate that result on the *result_color* object.
 
+        Vector3f lightDir = (light.position - point).normalized();
+        Vector3f viewDir = (eye_pos - point).normalized();
+        Vector3f halfwayDir = (viewDir + lightDir).normalized();
+        float distance = (light.position - point).norm();
+        distance = distance * distance;
 
+        // reflected ambient light = ambient coefficient * intensity
+        Vector3f ambient = ka * amb_light_intensity.x();
+
+        // Lambertian: diffusely reflected light = diffuse coefficient * energy arrived at the shading pint * enery received by the shading point
+        Vector3f diffuse = kd * (light.intensity.x() / distance) * std::max(0.f, normal.dot(lightDir));
+
+        // Blinn-Phong: speculary reflected light = specular coefficient * energy arrived at the shading pint * view dir close to mirror direction
+        Vector3f specular = ks * (light.intensity.x() / distance) * std::pow(std::max(0.f, normal.dot(halfwayDir)), p);
+
+        // Blinn-Phong Reflection Model: Blinn-Phong Reflection = Ambient + Diffuse + Specular
+        result_color += (ambient + diffuse + specular);
     }
 
     return result_color * 255.f;
@@ -235,7 +279,6 @@ Eigen::Vector3f displacement_fragment_shader(const fragment_shader_payload& payl
 
 Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
 {
-    
     Eigen::Vector3f ka = Eigen::Vector3f(0.005, 0.005, 0.005);
     Eigen::Vector3f kd = payload.color;
     Eigen::Vector3f ks = Eigen::Vector3f(0.7937, 0.7937, 0.7937);
@@ -266,6 +309,23 @@ Eigen::Vector3f bump_fragment_shader(const fragment_shader_payload& payload)
     // Vector ln = (-dU, -dV, 1)
     // Normal n = normalize(TBN * ln)
 
+    auto n = normal;
+    float x = n.x();
+    float y = n.y();
+    float z = n.z();
+    float w = payload.texture->width;
+    float h = payload.texture->height;
+    float u = payload.tex_coords.x();
+    float v = payload.tex_coords.y();
+
+    Vector3f t(x*y/sqrt(x*x+z*z),sqrt(x*x+z*z),z*y/sqrt(x*x+z*z));
+    Vector3f b = n.cross(t);
+    Matrix3f TBN;
+    TBN << t, b, n;
+    float dU = kh * kn * (payload.texture->getColor(u+1.f/w,v).norm()-payload.texture->getColor(u,v).norm());
+    float dV = kh * kn * (payload.texture->getColor(u,v+1.f/h).norm()-payload.texture->getColor(u,v).norm());
+    Vector3f ln(-dU, -dV, 1);
+    normal = TBN * ln;
 
     Eigen::Vector3f result_color = {0, 0, 0};
     result_color = normal;

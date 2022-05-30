@@ -306,7 +306,7 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
         {
             if (insideTriangle(px, py, t.v))
             {
-                auto[alpha, beta, gamma] = computeBarycentric2D(px, py, t.v);
+                auto [alpha, beta, gamma] = computeBarycentric2D(px, py, t.v);
                 float Z = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
                 float zp = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
                 zp *= Z;
@@ -319,7 +319,8 @@ void rst::rasterizer::rasterize_triangle(const Triangle& t, const std::array<Eig
                     auto interpolated_color = alpha * t.color[0] + beta * t.color[1] + gamma * t.color[2];
                     auto interpolated_normal = alpha * t.normal[0] + beta * t.normal[1] + gamma * t.normal[2];
                     auto interpolated_texcoords = alpha * t.tex_coords[0] + beta * t.tex_coords[1] + gamma * t.tex_coords[2];
-                    // 插值出来的uv有可能超过[0,1]，导致opencv库断言失败而崩溃。讲道理uv不应该有问题，难道是obj导出的时候有问题？
+                    // The interpolated uv may exceed [0,1], causing the opencv library to fail the assertion and crash. 
+                    // To be reasonable, there shouldn't be a problem with uv. Is there a problem with the obj export?
                     float u = interpolated_texcoords.x();
                     float v = interpolated_texcoords.y();
                     if (u < 0) u = 0.f;
